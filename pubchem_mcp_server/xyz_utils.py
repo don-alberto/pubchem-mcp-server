@@ -75,7 +75,7 @@ def download_sdf_from_pubchem(cid: str) -> Optional[str]:
     url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/record/SDF/?record_type=3d&response_type=display&display_type=sdf"
     
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=60)
         if response.status_code == 200:
             return response.text
         else:

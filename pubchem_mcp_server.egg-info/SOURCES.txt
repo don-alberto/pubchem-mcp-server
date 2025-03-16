@@ -1,6 +1,7 @@
 README.md
 setup.py
 pubchem_mcp_server/__init__.py
+pubchem_mcp_server/async_processor.py
 pubchem_mcp_server/batch_processor.py
 pubchem_mcp_server/cli.py
 pubchem_mcp_server/pubchem_api.py

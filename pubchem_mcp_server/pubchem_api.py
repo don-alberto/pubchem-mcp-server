@@ -90,7 +90,7 @@ def get_pubchem_data(query: str, format: str = 'JSON', include_3d: bool = False)
         
         try:
             session = create_session()
-            response = session.get(url, timeout=10)
+            response = session.get(url, timeout=180)
             response.raise_for_status()
             result = response.json()
             props = result.get('PropertyTable', {}).get('Properties', [{}])[0]
