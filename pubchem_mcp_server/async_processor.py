@@ -11,12 +11,13 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any, Optional, Callable, Union
+import traceback
 
 from .pubchem_api import get_pubchem_data
 
 # Configure logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)  # Changed to DEBUG for more detailed logging
 handler = logging.StreamHandler()
 formatter = logging.Formatter('[%(levelname)s] %(message)s')
 handler.setFormatter(formatter)
@@ -74,26 +75,26 @@ class AsyncRequestProcessor:
         self.status_lock = threading.Lock()
         self.status_ttl = status_ttl
         self.cleanup_task = None
+        self._loop = None
         
         # Start cleanup task
         self._start_cleanup_task()
     
     def _start_cleanup_task(self):
         """Start cleanup task to remove old completed requests"""
+        try:
+            self._loop = asyncio.get_event_loop()
+        except RuntimeError:
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+        
         async def cleanup_loop():
             while True:
                 self._cleanup_old_statuses()
                 await asyncio.sleep(300)  # Run every 5 minutes
         
-        loop = asyncio.new_event_loop()
-        self.cleanup_task = loop.create_task(cleanup_loop())
-        
-        def run_cleanup():
-            asyncio.set_event_loop(loop)
-            loop.run_forever()
-        
-        cleanup_thread = threading.Thread(target=run_cleanup, daemon=True)
-        cleanup_thread.start()
+        self.cleanup_task = self._loop.create_task(cleanup_loop())
+        logger.debug("Started cleanup task")
     
     def _cleanup_old_statuses(self):
         """Clean up old completed request statuses"""
@@ -192,9 +193,16 @@ class AsyncRequestProcessor:
     
     def shutdown(self):
         """Shutdown executor and cancel cleanup task"""
+        logger.debug("Shutting down processor")
         self.executor.shutdown(wait=False)
-        if self.cleanup_task:
-            self.cleanup_task.cancel()
+        if self.cleanup_task and self._loop:
+            try:
+                self.cleanup_task.cancel()
+                if not self._loop.is_closed():
+                    self._loop.run_until_complete(self.cleanup_task)
+            except Exception as e:
+                logger.error(f"Error during cleanup task shutdown: {e}")
+                traceback.print_exc()
 
 
 # Singleton instance

@@ -13,24 +13,17 @@ import json
 import logging
 import signal
 import sys
+import traceback
 from typing import Any, Dict, List, Optional, Union
 
 # Try to import MCP SDK, provide a simplified version of the server if not available
 try:
-    from mcp.server import Server
-    from mcp.server.stdio import StdioServerTransport
-    from mcp.types import (
-        CallToolRequest,
-        ListToolsRequest,
-        McpError,
-        INVALID_REQUEST,
-        METHOD_NOT_FOUND,
-        INVALID_PARAMS,
-    )
+    from mcp.server.fastmcp import FastMCP
+    from mcp.server.stdio import stdio_server
     MCP_SDK_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     MCP_SDK_AVAILABLE = False
-    print("Warning: MCP SDK is not installed, server functionality will not be available.")
+    print(f"Warning: MCP SDK is not installed, server functionality will not be available. Error: {e}")
     print("You can still use the command line interface (pubchem-mcp) to retrieve PubChem data.")
 
 from .pubchem_api import get_pubchem_data
@@ -38,7 +31,7 @@ from .async_processor import get_processor
 
 # Configure logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)  # Changed to DEBUG for more detailed logging
 handler = logging.StreamHandler()
 formatter = logging.Formatter('[%(levelname)s] %(message)s')
 handler.setFormatter(formatter)
@@ -50,118 +43,25 @@ class PubChemServer:
     
     def __init__(self):
         """Initialize PubChem MCP server"""
-        self.server = Server(
-            {
-                "name": "pubchem-server",
-                "version": "1.0.0",
-            },
-            {
-                "capabilities": {
-                    "tools": {},
-                },
-            }
-        )
-        
-        self.setup_tool_handlers()
+        self.app = FastMCP("pubchem-server", "1.0.0")
+        self.setup_tools()
         
         # Error handling
-        self.server.onerror = lambda error: logger.error(f"[MCP Error] {error}")
         signal.signal(signal.SIGINT, self.handle_sigint)
     
     def handle_sigint(self, sig, frame):
         """Handle SIGINT signal"""
         logger.info("Received interrupt signal, shutting down server...")
-        self.server.close()
         sys.exit(0)
     
-    def setup_tool_handlers(self):
-        """Set up tool handlers"""
-        self.server.set_request_handler(ListToolsRequest, self.handle_list_tools)
-        self.server.set_request_handler(CallToolRequest, self.handle_call_tool)
-    
-    async def handle_list_tools(self, request):
-        """Handle list tools request"""
-        return {
-            "tools": [
-                {
-                    "name": "get_pubchem_data",
-                    "description": "Retrieve compound structure and property data",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "Compound name or PubChem CID",
-                            },
-                            "format": {
-                                "type": "string",
-                                "description": "Output format, options: 'JSON', 'CSV', or 'XYZ', default: 'JSON'",
-                                "enum": ["JSON", "CSV", "XYZ"],
-                            },
-                            "include_3d": {
-                                "type": "boolean",
-                                "description": "Whether to include 3D structure information (only valid when format is 'XYZ'), default: false",
-                            },
-                        },
-                        "required": ["query"],
-                    },
-                },
-                {
-                    "name": "submit_pubchem_request",
-                    "description": "Submit asynchronous request for PubChem data (useful for slower queries)",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "Compound name or PubChem CID",
-                            },
-                            "format": {
-                                "type": "string",
-                                "description": "Output format, options: 'JSON', 'CSV', or 'XYZ', default: 'JSON'",
-                                "enum": ["JSON", "CSV", "XYZ"],
-                            },
-                            "include_3d": {
-                                "type": "boolean",
-                                "description": "Whether to include 3D structure information (only valid when format is 'XYZ'), default: false",
-                            },
-                        },
-                        "required": ["query"],
-                    },
-                },
-                {
-                    "name": "get_request_status",
-                    "description": "Get status of an asynchronous PubChem data request",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "request_id": {
-                                "type": "string",
-                                "description": "Request ID returned from submit_pubchem_request",
-                            },
-                        },
-                        "required": ["request_id"],
-                    },
-                },
-            ],
-        }
-    
-    async def handle_call_tool(self, request):
-        """Handle call tool request"""
-        tool_name = request.params.name
-        args = request.params.arguments
-        
-        # Handle get_pubchem_data (synchronous)
-        if tool_name == "get_pubchem_data":
-            if not args.get("query"):
-                raise McpError(
-                    INVALID_PARAMS,
-                    "Missing required parameter: query"
-                )
-            
+    def setup_tools(self):
+        """Set up tools"""
+        @self.app.tool("get_pubchem_data")
+        async def get_pubchem_data_tool(query: str, format: str = "JSON", include_3d: bool = False):
+            """Retrieve compound structure and property data"""
             try:
                 # Check if XYZ format requires include_3d parameter
-                if args.get("format", "").upper() == "XYZ" and not args.get("include_3d"):
+                if format.upper() == "XYZ" and not include_3d:
                     return {
                         "content": [
                             {
@@ -172,12 +72,7 @@ class PubChemServer:
                         "isError": True,
                     }
                 
-                result = get_pubchem_data(
-                    args.get("query"),
-                    args.get("format", "JSON"),
-                    args.get("include_3d", False)
-                )
-                
+                result = get_pubchem_data(query, format, include_3d)
                 return {
                     "content": [
                         {
@@ -196,18 +91,13 @@ class PubChemServer:
                     ],
                     "isError": True,
                 }
-                
-        # Handle submit_pubchem_request (asynchronous)
-        elif tool_name == "submit_pubchem_request":
-            if not args.get("query"):
-                raise McpError(
-                    INVALID_PARAMS,
-                    "Missing required parameter: query"
-                )
-            
+
+        @self.app.tool("submit_pubchem_request")
+        async def submit_pubchem_request_tool(query: str, format: str = "JSON", include_3d: bool = False):
+            """Submit asynchronous request for PubChem data (useful for slower queries)"""
             try:
                 # Check if XYZ format requires include_3d parameter
-                if args.get("format", "").upper() == "XYZ" and not args.get("include_3d"):
+                if format.upper() == "XYZ" and not include_3d:
                     return {
                         "content": [
                             {
@@ -220,11 +110,7 @@ class PubChemServer:
                 
                 # Submit to async processor
                 processor = get_processor()
-                request_id = processor.submit_request(
-                    args.get("query"),
-                    args.get("format", "JSON"),
-                    args.get("include_3d", False)
-                )
+                request_id = processor.submit_request(query, format, include_3d)
                 
                 return {
                     "content": [
@@ -247,25 +133,20 @@ class PubChemServer:
                     ],
                     "isError": True,
                 }
-                
-        # Handle get_request_status
-        elif tool_name == "get_request_status":
-            if not args.get("request_id"):
-                raise McpError(
-                    INVALID_PARAMS,
-                    "Missing required parameter: request_id"
-                )
-            
+
+        @self.app.tool("get_request_status")
+        async def get_request_status_tool(request_id: str):
+            """Get status of an asynchronous PubChem data request"""
             try:
                 processor = get_processor()
-                status = processor.get_status(args.get("request_id"))
+                status = processor.get_status(request_id)
                 
                 if status is None:
                     return {
                         "content": [
                             {
                                 "type": "text",
-                                "text": f"Request ID not found: {args.get('request_id')}",
+                                "text": f"Request ID not found: {request_id}",
                             },
                         ],
                         "isError": True,
@@ -290,19 +171,14 @@ class PubChemServer:
                     ],
                     "isError": True,
                 }
-        else:
-            raise McpError(
-                METHOD_NOT_FOUND,
-                f"Unknown tool: {tool_name}"
-            )
     
-    async def run(self):
+    def run(self):
         """Run the server"""
         # Initialize processor
         get_processor()
         
-        transport = StdioServerTransport()
-        await self.server.connect(transport)
+        # Run the server using FastMCP's run method
+        self.app.run()
         logger.info("PubChem MCP server running on stdio")
 
 
@@ -318,25 +194,26 @@ def main():
         cli_main()
         return
     
-    import asyncio
-    
     # Set logging level
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)  # Changed to DEBUG for more detailed logging
     
     try:
         # Create and run server
         server = PubChemServer()
-        asyncio.run(server.run())
+        server.run()
     except Exception as e:
         print(f"Error starting server: {e}")
+        print("Full traceback:")
+        traceback.print_exc()
         sys.exit(1)
     finally:
         # Shutdown processor if server closes
         try:
             processor = get_processor()
             processor.shutdown()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Error during processor shutdown: {e}")
+            traceback.print_exc()
 
 
 if __name__ == "__main__":

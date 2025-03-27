@@ -1,0 +1,27 @@
+# Basic requirements for PubChem MCP Server
+requests>=2.25.0
+urllib3>=1.26.0  # For retry functionality
+
+# Async processing
+concurrent-futures>=3.0.0  # For ThreadPoolExecutor
+asyncio>=3.4.3  # For async support
+
+# MCP SDK - required for server functionality
+mcp>=1.2.0  # Core MCP SDK
+
+# CLI tools for MCP
+"mcp[cli]"  # Command line interface tools for MCP
+
+# Type checking (included in Python 3.8+ standard library)
+typing>=3.7.4  # Only needed for Python 3.7 or earlier
+
+# Optional dependencies
+# rdkit>=2022.9.1  # For enhanced 3D structure generation
+
+# Development dependencies
+# pytest>=6.0.0  # For running tests
+# black>=22.0.0  # For code formatting
+
+# MCP SDK (not publicly available)
+# Obtain access from Anthropic developer program
+# mcp-sdk  # Install according to Anthropic's instructions 
