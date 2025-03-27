@@ -19,23 +19,14 @@ This is a Python implementation of a Model Context Protocol (MCP) server that pr
 
 ```bash
 # Install from source
-git clone https://github.com/yourusername/pubchem-mcp-server.git
+git clone https://github.com/don-alberto/pubchem-mcp-server.git
 cd pubchem-mcp-server
 pip install .
-
-# Or install directly from PyPI (if published)
-pip install pubchem-mcp-server
 ```
 
 ### Installing RDKit Support (Optional)
 
 RDKit is used to enhance 3D structure generation capabilities but is not required:
-
-```bash
-pip install "pubchem-mcp-server[rdkit]"
-```
-
-Alternatively, you can install RDKit separately:
 
 ```bash
 conda install -c conda-forge rdkit
