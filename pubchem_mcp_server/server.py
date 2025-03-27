@@ -20,6 +20,9 @@ from typing import Any, Dict, List, Optional, Union
 try:
     from mcp.server.fastmcp import FastMCP
     from mcp.server.stdio import stdio_server
+    from mcp.server.sse import SseServerTransport
+    from starlette.applications import Starlette
+    from starlette.routing import Route
     MCP_SDK_AVAILABLE = True
 except ImportError as e:
     MCP_SDK_AVAILABLE = False
@@ -48,6 +51,9 @@ class PubChemServer:
         
         # Error handling
         signal.signal(signal.SIGINT, self.handle_sigint)
+        
+        # Initialize SSE transport
+        self.sse = SseServerTransport("/messages")
     
     def handle_sigint(self, sig, frame):
         """Handle SIGINT signal"""
@@ -171,15 +177,48 @@ class PubChemServer:
                     ],
                     "isError": True,
                 }
+
+    async def handle_sse(self, scope, receive, send):
+        """Handle SSE connection"""
+        async with self.sse.connect_sse(scope, receive, send) as streams:
+            await self.app.run(streams[0], streams[1], self.app.create_initialization_options())
+
+    async def handle_messages(self, scope, receive, send):
+        """Handle SSE messages"""
+        await self.sse.handle_post_message(scope, receive, send)
     
-    def run(self):
-        """Run the server"""
+    def create_starlette_app(self):
+        """Create Starlette app with SSE routes"""
+        return Starlette(
+            routes=[
+                Route("/sse", endpoint=self.handle_sse),
+                Route("/messages", endpoint=self.handle_messages, methods=["POST"]),
+            ]
+        )
+    
+    def run(self, transport="stdio", host="0.0.0.0", port=8000):
+        """Run the server with specified transport
+
+        Args:
+            transport (str): Transport type ('stdio' or 'sse')
+            host (str): Host to bind to when using SSE transport
+            port (int): Port to listen on when using SSE transport
+        """
         # Initialize processor
         get_processor()
         
-        # Run the server using FastMCP's run method
-        self.app.run()
-        logger.info("PubChem MCP server running on stdio")
+        if transport == "stdio":
+            # Run with stdio transport
+            self.app.run()
+            logger.info("PubChem MCP server running on stdio")
+        elif transport == "sse":
+            # Create and run Starlette app for SSE
+            import uvicorn
+            app = self.create_starlette_app()
+            logger.info(f"PubChem MCP server starting on SSE (http://{host}:{port}/sse)")
+            uvicorn.run(app, host=host, port=port)
+        else:
+            raise ValueError(f"Unsupported transport: {transport}")
 
 
 def main():
@@ -195,12 +234,22 @@ def main():
         return
     
     # Set logging level
-    logging.basicConfig(level=logging.DEBUG)  # Changed to DEBUG for more detailed logging
+    logging.basicConfig(level=logging.DEBUG)
     
     try:
+        import argparse
+        parser = argparse.ArgumentParser(description='PubChem MCP Server')
+        parser.add_argument('--transport', default='stdio', choices=['stdio', 'sse'],
+                          help='Transport type (stdio or sse)')
+        parser.add_argument('--host', default='0.0.0.0',
+                          help='Host to bind to when using SSE transport')
+        parser.add_argument('--port', type=int, default=8000,
+                          help='Port to listen on when using SSE transport')
+        args = parser.parse_args()
+        
         # Create and run server
         server = PubChemServer()
-        server.run()
+        server.run(transport=args.transport, host=args.host, port=args.port)
     except Exception as e:
         print(f"Error starting server: {e}")
         print("Full traceback:")

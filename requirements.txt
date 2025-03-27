@@ -3,14 +3,18 @@ requests>=2.25.0
 urllib3>=1.26.0  # For retry functionality
 
 # Async processing
-concurrent-futures>=3.0.0  # For ThreadPoolExecutor
 asyncio>=3.4.3  # For async support
 
 # MCP SDK - required for server functionality
 mcp>=1.2.0  # Core MCP SDK
+mcp[web]  # Web transport support for MCP
+
+# Web server dependencies for SSE transport
+starlette>=0.27.0  # ASGI framework
+uvicorn>=0.23.0  # ASGI server
 
 # CLI tools for MCP
-"mcp[cli]"  # Command line interface tools for MCP
+mcp[cli]  # Command line interface tools for MCP
 
 # Type checking (included in Python 3.8+ standard library)
 typing>=3.7.4  # Only needed for Python 3.7 or earlier

@@ -1,5 +1,7 @@
 # PubChem MCP Server (Python Version)
 
+> This project is a fork of [PhelanShao/pubchem-mcp-server](https://github.com/PhelanShao/pubchem-mcp-server), enhanced with additional transport options and Docker support.
+
 This is a Python implementation of a Model Context Protocol (MCP) server that provides PubChem compound data retrieval functionality.
 
 ## Features
@@ -7,6 +9,8 @@ This is a Python implementation of a Model Context Protocol (MCP) server that pr
 - Retrieve compound data using compound names or PubChem CID
 - Support for multiple output formats: JSON, CSV, and XYZ
 - Support for 3D structure data retrieval (XYZ format)
+- Multiple transport options: stdio and SSE
+- Docker support for containerized deployment
 - Provides both command-line interface and MCP server interface
 
 ## Installation
@@ -16,7 +20,7 @@ This is a Python implementation of a Model Context Protocol (MCP) server that pr
 ```bash
 # Install from source
 git clone https://github.com/yourusername/pubchem-mcp-server.git
-cd pubchem-mcp-server/python_version
+cd pubchem-mcp-server
 pip install .
 
 # Or install directly from PyPI (if published)
@@ -39,6 +43,16 @@ conda install -c conda-forge rdkit
 pip install rdkit
 ```
 
+### Docker Installation
+
+```bash
+# Build the Docker image
+docker build -t pubchem-mcp-server .
+
+# Run the container with SSE transport
+docker run -p 8000:8000 pubchem-mcp-server
+```
+
 ## Usage
 
 ### Command Line Interface
@@ -59,29 +73,52 @@ pubchem-mcp --help
 
 ### As an MCP Server
 
-1. Start the server:
+The server supports two transport modes: stdio and SSE.
 
+#### stdio Transport
+
+1. Start the server:
 ```bash
-pubchem-mcp-server
+python -m pubchem_mcp_server.server
 ```
 
-2. Add the server to your MCP configuration file (typically located at `~/.claude-dev/settings/cline_mcp_settings.json` or `~/Library/Application Support/Claude/claude_desktop_config.json`):
-
+2. Add the server to your MCP configuration:
 ```json
 {
   "mcpServers": {
     "pubchem": {
       "command": "python",
       "args": ["-m", "pubchem_mcp_server.server"],
-      "env": {},
-      "disabled": false,
-      "autoApprove": []
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
     }
   }
 }
 ```
 
-3. Restart your Claude application or Claude development environment, and you'll be able to use the PubChem MCP tools.
+#### SSE Transport
+
+1. Start the server with SSE transport:
+```bash
+# Direct
+python -m pubchem_mcp_server.server --transport sse
+
+# Or using Docker
+docker run -p 8000:8000 pubchem-mcp-server
+```
+
+2. Add the server to your MCP configuration:
+```json
+{
+  "mcpServers": {
+    "pubchem": {
+      "transport": "sse",
+      "url": "http://localhost:8000/sse"
+    }
+  }
+}
+```
 
 ## API
 
@@ -92,9 +129,11 @@ pubchem-mcp-server
 
 ## Dependencies
 
-- Python >= 3.8
+- Python >= 3.10
 - requests >= 2.25.0
-- MCP SDK (optional, for MCP server functionality)
+- MCP SDK (required for server functionality)
+- starlette >= 0.27.0 (for SSE transport)
+- uvicorn >= 0.23.0 (for SSE transport)
 - rdkit >= 2022.9.1 (optional, for enhanced 3D structure generation)
 
 ### About MCP SDK
@@ -107,5 +146,5 @@ MIT
 
 ## Acknowledgments
 
+- This project is forked from [PhelanShao/pubchem-mcp-server](https://github.com/PhelanShao/pubchem-mcp-server)
 - PubChem data is provided by the National Center for Biotechnology Information (NCBI)
-- Reimplemented based on the original TypeScript version of the PubChem MCP server
