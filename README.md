@@ -1,71 +1,71 @@
-# PubChem MCP Server (Python版本)
+# PubChem MCP Server (Python Version)
 
-这是一个用Python实现的Model Context Protocol (MCP)服务器，提供PubChem化合物数据检索功能。
+This is a Python implementation of a Model Context Protocol (MCP) server that provides PubChem compound data retrieval functionality.
 
-## 功能
+## Features
 
-- 通过化合物名称或PubChem CID检索化合物数据
-- 支持多种输出格式：JSON、CSV和XYZ
-- 支持3D结构数据检索（XYZ格式）
-- 提供命令行接口和MCP服务器接口
+- Retrieve compound data using compound names or PubChem CID
+- Support for multiple output formats: JSON, CSV, and XYZ
+- Support for 3D structure data retrieval (XYZ format)
+- Provides both command-line interface and MCP server interface
 
-## 安装
+## Installation
 
-### 基本安装
+### Basic Installation
 
 ```bash
-# 从源代码安装
+# Install from source
 git clone https://github.com/yourusername/pubchem-mcp-server.git
 cd pubchem-mcp-server/python_version
 pip install .
 
-# 或者直接从PyPI安装（如果已发布）
+# Or install directly from PyPI (if published)
 pip install pubchem-mcp-server
 ```
 
-### 安装RDKit支持（可选）
+### Installing RDKit Support (Optional)
 
-RDKit用于增强3D结构生成功能，但不是必需的：
+RDKit is used to enhance 3D structure generation capabilities but is not required:
 
 ```bash
 pip install "pubchem-mcp-server[rdkit]"
 ```
 
-或者，您可以单独安装RDKit：
+Alternatively, you can install RDKit separately:
 
 ```bash
 conda install -c conda-forge rdkit
-# 或
+# or
 pip install rdkit
 ```
 
-## 使用方法
+## Usage
 
-### 命令行接口
+### Command Line Interface
 
 ```bash
-# 基本用法
+# Basic usage
 pubchem-mcp aspirin
 
-# 指定输出格式
+# Specify output format
 pubchem-mcp aspirin --format CSV
 
-# 获取3D结构（XYZ格式）
+# Get 3D structure (XYZ format)
 pubchem-mcp aspirin --format XYZ --include-3d
 
-# 查看帮助
+# View help
 pubchem-mcp --help
 ```
 
-### 作为MCP服务器
+### As an MCP Server
 
-1. 启动服务器：
+1. Start the server:
 
 ```bash
 pubchem-mcp-server
 ```
 
-2. 将服务器添加到MCP配置文件中（通常位于`~/.claude-dev/settings/cline_mcp_settings.json`或`~/Library/Application Support/Claude/claude_desktop_config.json`）：
+2. Add the server to your MCP configuration file (typically located at `~/.claude-dev/settings/cline_mcp_settings.json` or `~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
@@ -81,31 +81,31 @@ pubchem-mcp-server
 }
 ```
 
-3. 重启Claude应用程序或Claude开发环境，然后您就可以使用PubChem MCP工具了。
+3. Restart your Claude application or Claude development environment, and you'll be able to use the PubChem MCP tools.
 
 ## API
 
-### 主要函数
+### Main Functions
 
-- `get_pubchem_data(query, format='JSON', include_3d=False)`: 获取PubChem化合物数据
-- `get_xyz_structure(cid, smiles, compound_info)`: 获取化合物的XYZ格式3D结构
+- `get_pubchem_data(query, format='JSON', include_3d=False)`: Retrieve PubChem compound data
+- `get_xyz_structure(cid, smiles, compound_info)`: Get compound 3D structure in XYZ format
 
-## 依赖项
+## Dependencies
 
 - Python >= 3.8
 - requests >= 2.25.0
-- MCP SDK（可选，用于MCP服务器功能）
-- rdkit >= 2022.9.1（可选，用于增强3D结构生成功能）
+- MCP SDK (optional, for MCP server functionality)
+- rdkit >= 2022.9.1 (optional, for enhanced 3D structure generation)
 
-### 关于MCP SDK
+### About MCP SDK
 
-MCP SDK是Model Context Protocol的软件开发工具包，用于创建MCP服务器。由于MCP SDK可能不在PyPI上公开可用，您可能需要手动安装它。如果您只想使用命令行接口来检索PubChem数据，则不需要安装MCP SDK。
+The MCP SDK is a software development kit for the Model Context Protocol, used to create MCP servers. Since the MCP SDK might not be publicly available on PyPI, you may need to install it manually. If you only want to use the command-line interface to retrieve PubChem data, you don't need to install the MCP SDK.
 
-## 许可证
+## License
 
 MIT
 
-## 致谢
+## Acknowledgments
 
-- PubChem数据由美国国家生物技术信息中心(NCBI)提供
-- 基于原始TypeScript版本的PubChem MCP服务器重新实现
+- PubChem data is provided by the National Center for Biotechnology Information (NCBI)
+- Reimplemented based on the original TypeScript version of the PubChem MCP server

@@ -1,0 +1,10 @@
+{
+  "pubchem": {
+    "command": "wsl",
+    "args": ["/home/badf00d/pubchem-mcp-server/venv/bin/python", "-m", "pubchem_mcp_server.server"],
+    "env": {
+      "PYTHONUNBUFFERED": "1",
+      "LOG_LEVEL": "DEBUG"
+    }
+  }
+} 
